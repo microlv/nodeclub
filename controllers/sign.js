@@ -7,6 +7,7 @@ var mail = require('../common/mail');
 var tools = require('../common/tools');
 var utility = require('utility');
 var authMiddleWare = require('../middlewares/auth');
+var uuid = require('node-uuid');
 
 //sign up
 exports.showSignup = function (req, res) {
@@ -59,21 +60,21 @@ exports.signup = function (req, res, next) {
       return;
     }
 
-    // md5 the pass
-    pass = utility.md5(pass);
-    // create gravatar
-    var avatarUrl = User.makeGravatar(email);
-
-    User.newAndSave(loginname, loginname, pass, email, avatarUrl, false, function (err) {
-      if (err) {
-        return next(err);
-      }
-      // 发送激活邮件
-      mail.sendActiveMail(email, utility.md5(email + config.session_secret), loginname);
-      res.render('sign/signup', {
-        success: '欢迎加入 ' + config.name + '！我们已给您的注册邮箱发送了一封邮件，请点击里面的链接来激活您的帐号。'
+    tools.bhash(pass, ep.done(function (passhash) {
+      // create gravatar
+      var avatarUrl = User.makeGravatar(email);
+      User.newAndSave(loginname, loginname, passhash, email, avatarUrl, false, function (err) {
+        if (err) {
+          return next(err);
+        }
+        // 发送激活邮件
+        mail.sendActiveMail(email, utility.md5(email + passhash + config.session_secret), loginname);
+        res.render('sign/signup', {
+          success: '欢迎加入 ' + config.name + '！我们已给您的注册邮箱发送了一封邮件，请点击里面的链接来激活您的帐号。'
+        });
       });
-    });
+
+    }));
   });
 };
 
@@ -109,6 +110,8 @@ var notJump = [
 exports.login = function (req, res, next) {
   var loginname = validator.trim(req.body.name).toLowerCase();
   var pass = validator.trim(req.body.pass);
+  var ep = new eventproxy();
+  ep.fail(next);
 
   if (!loginname || !pass) {
     res.status(422);
@@ -122,34 +125,41 @@ exports.login = function (req, res, next) {
     getUser = User.getUserByLoginName;
   }
 
+  ep.on('login_error', function (login_error) {
+    res.status(403);
+    res.render('sign/signin', { error: '用户名或密码错误' });
+  });
+
   getUser(loginname, function (err, user) {
     if (err) {
       return next(err);
     }
     if (!user) {
-      return res.render('sign/signin', { error: '这个用户不存在。' });
+      return ep.emit('login_error');
     }
-    pass = utility.md5(pass);
-    if (pass !== user.pass) {
-      return res.render('sign/signin', { error: '密码错误。' });
-    }
-    if (!user.active) {
-      // 重新发送激活邮件
-      mail.sendActiveMail(user.email, utility.md5(user.email + config.session_secret), user.loginname);
-      res.status(403);
-      return res.render('sign/signin', { error: '此帐号还没有被激活，激活链接已发送到 ' + user.email + ' 邮箱，请查收。' });
-    }
-    // store session cookie
-    authMiddleWare.gen_session(user, res);
-    //check at some page just jump to home page
-    var refer = req.session._loginReferer || '/';
-    for (var i = 0, len = notJump.length; i !== len; ++i) {
-      if (refer.indexOf(notJump[i]) >= 0) {
-        refer = '/';
-        break;
+    var passhash = user.pass;
+    tools.bcompare(pass, passhash, ep.done(function (bool) {
+      if (!bool) {
+        return ep.emit('login_error');
       }
-    }
-    res.redirect(refer);
+      if (!user.active) {
+        // 重新发送激活邮件
+        mail.sendActiveMail(user.email, utility.md5(user.email + passhash + config.session_secret), user.loginname);
+        res.status(403);
+        return res.render('sign/signin', { error: '此帐号还没有被激活，激活链接已发送到 ' + user.email + ' 邮箱，请查收。' });
+      }
+      // store session cookie
+      authMiddleWare.gen_session(user, res);
+      //check at some page just jump to home page
+      var refer = req.session._loginReferer || '/';
+      for (var i = 0, len = notJump.length; i !== len; ++i) {
+        if (refer.indexOf(notJump[i]) >= 0) {
+          refer = '/';
+          break;
+        }
+      }
+      res.redirect(refer);
+    }));
   });
 };
 
@@ -157,7 +167,7 @@ exports.login = function (req, res, next) {
 exports.signout = function (req, res, next) {
   req.session.destroy();
   res.clearCookie(config.auth_cookie_name, { path: '/' });
-  res.redirect(req.headers.referer || '/');
+  res.redirect('/');
 };
 
 exports.active_account = function (req, res, next) {
@@ -168,7 +178,8 @@ exports.active_account = function (req, res, next) {
     if (err) {
       return next(err);
     }
-    if (!user || utility.md5(user.email + config.session_secret) !== key) {
+    var passhash = user.pass;
+    if (!user || utility.md5(user.email + passhash + config.session_secret) !== key) {
       return res.render('notify/notify', {error: '信息有误，帐号无法被激活。'});
     }
     if (user.active) {
@@ -188,18 +199,6 @@ exports.showSearchPass = function (req, res) {
   res.render('sign/search_pass');
 };
 
-function randomString(size) {
-  size = size || 6;
-  var code_string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  var max_num = code_string.length + 1;
-  var new_pass = '';
-  while (size > 0) {
-    new_pass += code_string.charAt(Math.floor(Math.random() * max_num));
-    size--;
-  }
-  return new_pass;
-}
-
 exports.updateSearchPass = function (req, res, next) {
   var email = validator.trim(req.body.email).toLowerCase();
   if (!validator.isEmail(email)) {
@@ -207,7 +206,7 @@ exports.updateSearchPass = function (req, res, next) {
   }
 
   // 动态生成retrive_key和timestamp到users collection,之后重置密码进行验证
-  var retrieveKey = randomString(15);
+  var retrieveKey = uuid.v4();
   var retrieveTime = new Date().getTime();
   User.getUserByMail(email, function (err, user) {
     if (!user) {
@@ -254,31 +253,32 @@ exports.reset_pass = function (req, res, next) {
 };
 
 exports.update_pass = function (req, res, next) {
-  var psw = req.body.psw || '';
-  var repsw = req.body.repsw || '';
-  var key = req.body.key || '';
-  var name = req.body.name || '';
+  var psw = validator.trim(req.body.psw) || '';
+  var repsw = validator.trim(req.body.repsw) || '';
+  var key = validator.trim(req.body.key) || '';
+  var name = validator.trim(req.body.name) || '';
+  var ep = new eventproxy();
+  ep.fail(next);
 
   if (psw !== repsw) {
     return res.render('sign/reset', {name: name, key: key, error: '两次密码输入不一致。'});
   }
-  User.getUserByNameAndKey(name, key, function (err, user) {
-    if (err) {
-      return next(err);
-    }
+  User.getUserByNameAndKey(name, key, ep.done(function (user) {
     if (!user) {
       return res.render('notify/notify', {error: '错误的激活链接'});
     }
-    user.pass = utility.md5(psw);
-    user.retrieve_key = null;
-    user.retrieve_time = null;
-    user.active = true; // 用户激活
-    user.save(function (err) {
-      if (err) {
-        return next(err);
-      }
-      return res.render('notify/notify', {success: '你的密码已重置。'});
-    });
-  });
+    tools.bhash(psw, ep.done(function (passhash) {
+      user.pass = passhash;
+      user.retrieve_key = null;
+      user.retrieve_time = null;
+      user.active = true; // 用户激活
+      user.save(function (err) {
+        if (err) {
+          return next(err);
+        }
+        return res.render('notify/notify', {success: '你的密码已重置。'});
+      });
+    }));
+  }));
 };
 

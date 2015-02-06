@@ -18,7 +18,11 @@
         或
         <a href='/signup'>注册</a>
         , 也可以
-        <a href="/auth/github" class="btn btn-info">通过 GitHub 登录</a>
+        <a href="/auth/github">
+          <span class="span-info">
+            通过 GitHub 登录
+          </span>
+        </a>
       </div>
     </div>
     <% } %>
@@ -74,23 +78,31 @@
   </div>
   <% } %>
 
-  <% if (typeof(site_links) !== 'undefined') { %>
   <div class='panel'>
     <div class='header'>
-      <span class='col_fade'>友情链接</span>
+      <span class='col_fade'>友情社区</span>
     </div>
     <div class='inner'>
-      <% if (site_links.length > 0) { %>
-      <ol>
-        <%site_links.forEach(function (link) {%>
-        <li><a href="<%-link.url%>"><%-link.text%></a></li>
-        <%})%>
+      <ol class="friendship-community">
+        <li>
+          <a href="https://ruby-china.org/" target="_blank">
+            <img src="<%- staticFile('/public/images/ruby-china-logo2.png') %>">
+          </a>
+        </li>
+        <div class="sep10"></div>
+        <li>
+          <a href="http://golangtc.com/" target="_blank">
+            <img src="<%- staticFile('/public/images/golangtc-logo.png') %>">
+          </a>
+        </li>
+        <div class="sep10"></div>
+        <li>
+          <a href="http://phphub.org/" target="_blank">
+            <img src="<%- staticFile('/public/images/phphub-logo.png') %>">
+          </a>
+        </li>
       </ol>
-      <% } else { %>
-      <p>无</p>
-      <% } %>
     </div>
   </div>
-  <% } %>
 
 </div>

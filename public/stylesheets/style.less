@@ -47,6 +47,7 @@ body {
   margin: 8px 0;
   display: inline-block;
   vertical-align: bottom;
+  width: 75%;
 }
 
 #content .changes {
@@ -63,9 +64,12 @@ body {
 }
 
 #content .action {
+  float: right;
+  margin-top: 8px;
+}
+#content .share {
   text-align: right;
 }
-
 #content h3 {
 }
 
@@ -486,11 +490,13 @@ a.user_avatar:hover {
   height: 40px;
 }
 
-.user_icon {
+.fa {
+  color: #000000;
   opacity: 0.4;
 }
 
-.user_icon:hover {
+.fa:hover {
+  color: #000000;
   opacity: 0.6;
 }
 
@@ -534,7 +540,8 @@ a.user_avatar:hover {
 }
 
 .reply_author {
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: bold;
 }
 
 .reply_time {
@@ -554,12 +561,12 @@ a.user_avatar:hover {
 .user_info {
   margin-left: 10px;
   display: inline-block;
-  float: right;
 }
 
 .user_action {
   float: right;
   margin-left: 20px;
+  font-size: 15px;
 }
 
 .user_action a {
@@ -724,14 +731,8 @@ img.unread {
 .markdown-text p code, .preview p code,
 .markdown-text li code, .preview li code {
   color: black;
-  box-shadow: 0px 0px 1px rgb(153, 153, 153);
   background-color: #fcfafa;
   padding: 4px 6px;
-}
-
-.markdown-text pre.prettyprint,
-.preview pre.prettyprint {
-  margin: 0.5em -10px;
 }
 
 .preview {
@@ -764,6 +765,8 @@ textarea#title {
   width: 98%;
   border: none;
   margin-bottom: 1em;
+  resize: none;
+  height: 20px;
 }
 
 .editor_buttons {
@@ -847,6 +850,7 @@ textarea#title {
 .form-actions {
   border-top: none;
   background-color: white;
+  max-height: 40px;
 }
 
 .btn {
@@ -881,6 +885,10 @@ textarea#title {
 .pagination a {
   line-height: 30px;
   color: @gray2;
+}
+
+.pagination li.active a {
+  color: @node_green;
 }
 
 .topic_content {
@@ -1091,6 +1099,15 @@ textarea.editor {
   }
 }
 
+.span-info {
+  .span-common();
+  color: white;
+  background-color: #5bc0de;
+  &:hover {
+    background-color: #2f96b4;
+  }
+}
+
 .alert {
   border-radius: 0px;
 }
@@ -1224,4 +1241,19 @@ textarea.editor {
 
 .btn-info {
   color: white !important;
+}
+
+.friendship-community {
+  img {
+    width: 150px;
+  }
+}
+
+.access_token {
+  width: 200px;
+  height: 200px;
+}
+
+.jiathis_style_24x24 {
+  display: inline-block;
 }

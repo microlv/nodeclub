@@ -2,6 +2,8 @@
 var should = require('should');
 var mm = require('mm');
 var support = require('../support/support');
+var eventproxy = require('eventproxy');
+var _ = require('lodash');
 
 var at = require('../../common/at');
 var message = require('../../common/message');
@@ -23,25 +25,116 @@ describe('test/common/at.test.js', function () {
     mm.restore();
   });
 
-  var text = '@testuser1 哈哈, hellowprd testuser1 testuser2 \
-    testuser3 @testuser2你好 \
-    @testuser1@testuser3\
-    @testuser2@testuser123 oh my god';
-  var linkedText = '[@testuser1](/user/testuser1) 哈哈, hellowprd testuser1 testuser2 \
-    testuser3 [@testuser2](/user/testuser2)你好 \
-    [@testuser1](/user/testuser1)[@testuser3](/user/testuser3)\
-    [@testuser2](/user/testuser2)[@testuser1](/user/testuser1)23 oh my god';
+  var text = multiline.stripIndent(function(){/*
+    @A-aZ-z0-9_
+    @中文
+      @begin_with_spaces @multi_in_oneline
+    Text More Text @around_text ![Pic](/public/images/cnode_icon_32.png)
+    @end_with_no_space中文
+    Text 中文@begin_with_no_spaces
+    @end_with_no_space2@begin_with_no_spaces2
+
+    jysperm@gmail.com @alsotang
+
+    @alsotang2
+
+
+    ```
+    呵呵 ```
+    @alsotang3
+    ```
+
+    ```js
+       @flow
+    ```
+
+    ```@alsotang4```
+
+    @
+    @@
+
+    `@code_begin_with_no_space`
+    code: `@in_code`
+
+        @in_pre
+
+    ```
+    @in_oneline_pre
+    ```
+
+    ```
+      Some Code
+      Code @in_multi_line_pre
+    ```
+
+    [@be_link](/user/be_link) [@be_link2](/user/be_link2)
+
+    @alsotang @alsotang
+    aldjf
+    @alsotang @tangzhanli
+  */});
+
+  var matched_users = ['A-aZ-z0-9_', 'begin_with_spaces',
+    'multi_in_oneline', 'around_text', 'end_with_no_space',
+    'begin_with_no_spaces', 'end_with_no_space2',
+    'begin_with_no_spaces2', 'alsotang', 'alsotang2',
+    'tangzhanli'];
+
+  var linkedText = multiline.stripIndent(function(){/*
+[@A-aZ-z0-9_](/user/A-aZ-z0-9_)
+@中文
+  [@begin_with_spaces](/user/begin_with_spaces) [@multi_in_oneline](/user/multi_in_oneline)
+Text More Text [@around_text](/user/around_text) ![Pic](/public/images/cnode_icon_32.png)
+[@end_with_no_space](/user/end_with_no_space)中文
+Text 中文[@begin_with_no_spaces](/user/begin_with_no_spaces)
+[@end_with_no_space2](/user/end_with_no_space2)[@begin_with_no_spaces2](/user/begin_with_no_spaces2)
+
+jysperm@gmail.com [@alsotang](/user/alsotang)
+
+[@alsotang2](/user/alsotang2)
+
+
+```
+呵呵 ```
+@alsotang3
+```
+
+```js
+   @flow
+```
+
+```@alsotang4```
+
+@
+@@
+
+`@code_begin_with_no_space`
+code: `@in_code`
+
+    @in_pre
+
+```
+@in_oneline_pre
+```
+
+```
+  Some Code
+  Code @in_multi_line_pre
+```
+
+[@be_link](/user/be_link) [@be_link2](/user/be_link2)
+
+[@alsotang](/user/alsotang) [@alsotang](/user/alsotang)
+aldjf
+[@alsotang](/user/alsotang) [@tangzhanli](/user/tangzhanli)
+  */});
 
   describe('#fetchUsers()', function () {
     var fetchUsers = at.fetchUsers;
     it('should found 6 users', function () {
       var users = fetchUsers(text);
       should.exist(users);
-      users.should.length(6);
-      for (var i = 0; i < users.length; i++) {
-        var user = users[i];
-        user.should.match(/^testuser\d+$/);
-      }
+      users.should.eql(matched_users);
     });
 
     it('should found 0 user in text', function () {
@@ -62,11 +155,18 @@ describe('test/common/at.test.js', function () {
 
   describe('sendMessageToMentionUsers()', function () {
     it('should send message to all mention users', function (done) {
-      var count = 0;
-      var atUserIds = [normalUser._id, normalUser2._id];
+      done = pedding(done, 2);
+      var atUserIds = [String(normalUser._id), String(normalUser2._id)];
+
+      var ep  = new eventproxy();
+      ep.after('user_id', atUserIds.length, function (user_ids) {
+        user_ids.sort().should.eql(atUserIds.sort());
+        done();
+      });
       mm(message, 'sendAtMessage',
         function (atUserId, authorId, topicId, replyId, callback) {
-          String(atUserId).should.equal(String(atUserIds[count++]));
+          // String(atUserId).should.equal(String(atUserIds[count++]));
+          ep.emit('user_id', String(atUserId));
           callback();
         });
 

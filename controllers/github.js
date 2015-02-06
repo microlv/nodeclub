@@ -1,8 +1,10 @@
-var sign = require('./sign');
 var Models = require('../models');
 var User = Models.User;
-var utility = require('utility');
 var authMiddleWare = require('../middlewares/auth');
+var tools = require('../common/tools');
+var eventproxy = require('eventproxy');
+var uuid = require('node-uuid');
+var validator = require('validator');
 
 exports.callback = function (req, res, next) {
   var profile = req.user;
@@ -13,7 +15,13 @@ exports.callback = function (req, res, next) {
     // 当用户已经是 cnode 用户时，通过 github 登陆将会更新他的资料
     if (user) {
       user.githubUsername = profile.username;
+      user.githubId = profile.id;
+      user.githubAccessToken = profile.accessToken;
+      // user.loginname = profile.username;
       user.avatar = profile._json.avatar_url;
+      if (profile.emails[0].value) {
+        user.email = profile.emails[0].value;
+      }
 
       user.save(function (err) {
         if (err) {
@@ -36,20 +44,27 @@ exports.new = function (req, res, next) {
 
 exports.create = function (req, res, next) {
   var profile = req.session.profile;
+  var isnew = req.body.isnew;
+  var loginname = validator.trim(req.body.name).toLowerCase();
+  var password = validator.trim(req.body.pass);
+  var ep = new eventproxy();
+  ep.fail(next);
+
   if (!profile) {
     return res.redirect('/signin');
   }
   delete req.session.profile;
-  if (req.body.isnew) { // 注册新账号
+  if (isnew) { // 注册新账号
     var user = new User({
-      name: profile.username,
       loginname: profile.username,
       pass: profile.accessToken,
       email: profile.emails[0].value,
       avatar: profile._json.avatar_url,
       githubId: profile.id,
       githubUsername: profile.username,
+      githubAccessToken: profile.accessToken,
       active: true,
+      accessToken: uuid.v4(),
     });
     user.save(function (err) {
       if (err) {
@@ -71,24 +86,33 @@ exports.create = function (req, res, next) {
       res.redirect('/');
     });
   } else { // 关联老账号
-    req.body.name = req.body.name.toLowerCase();
-    User.findOne({loginname: req.body.name, pass: utility.md5(req.body.pass)},
-      function (err, user) {
-        if (err) {
-          return next(err);
-        }
+    ep.on('login_error', function (login_error) {
+      res.status(403);
+      res.render('sign/signin', { error: '账号名或密码错误。' });
+    });
+    User.findOne({loginname: loginname},
+      ep.done(function (user) {
         if (!user) {
-          res.status(403);
-          return res.render('sign/signin', { error: '账号名或密码错误。' });
+          return ep.emit('login_error');
         }
-        user.githubId = profile.id;
-        user.save(function (err) {
-          if (err) {
-            return next(err);
+        tools.bcompare(password, user.pass, ep.done(function (bool) {
+          if (!bool) {
+            return ep.emit('login_error');
           }
-          authMiddleWare.gen_session(user, res);
-          res.redirect('/');
-        });
-      });
+          user.githubUsername = profile.username;
+          user.githubId = profile.id;
+          // user.loginname = profile.username;
+          user.avatar = profile._json.avatar_url;
+          user.githubAccessToken = profile.accessToken;
+
+          user.save(function (err) {
+            if (err) {
+              return next(err);
+            }
+            authMiddleWare.gen_session(user, res);
+            res.redirect('/');
+          });
+        }));
+      }));
   }
 };

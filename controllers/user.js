@@ -5,14 +5,16 @@ var Reply = require('../proxy').Reply;
 var TopicCollect = require('../proxy').TopicCollect;
 var utility = require('utility');
 var util = require('util');
+var TopicModel = require('../models').Topic;
+var ReplyModel = require('../models').Reply;
 
-var message = require('../common/message');
 var tools = require('../common/tools');
 var config = require('../config');
 var EventProxy = require('eventproxy');
 var validator = require('validator');
 var utility = require('utility');
 var _ = require('lodash');
+var qrcode = require('yaqrcode');
 
 exports.index = function (req, res, next) {
   var user_name = req.params.name;
@@ -27,10 +29,16 @@ exports.index = function (req, res, next) {
 
     var render = function (recent_topics, recent_replies) {
       user.friendly_create_at = tools.formatDate(user.create_at, true);
+      user.url = (function () {
+        if (user.url && user.url.indexOf('http') !== 0) {
+          return 'http://' + user.url;
+        }
+        return user.url;
+      })();
       // 如果用户没有激活，那么管理员可以帮忙激活
       var token = '';
       if (!user.active && req.session.user && req.session.user.is_admin) {
-        token = utility.md5(user.email + config.session_secret);
+        token = utility.md5(user.email + user.pass + config.session_secret);
       }
       res.render('user/index', {
         user: user,
@@ -82,11 +90,15 @@ exports.showSetting = function (req, res, next) {
       user.success = '保存成功。';
     }
     user.error = null;
+    user.accessTokenBase64 = qrcode(user.accessToken);
     return res.render('user/setting', user);
   });
 };
 
 exports.setting = function (req, res, next) {
+  var ep = new EventProxy();
+  ep.fail(next);
+
   // 显示出错或成功信息
   function showMessage(msg, data, isSuccess) {
     data = data || req.body;
@@ -97,7 +109,8 @@ exports.setting = function (req, res, next) {
       location: data.location,
       signature: data.signature,
       weibo: data.weibo,
-      githubUsername: data.github || data.githubUsername
+      accessToken: data.accessToken,
+      accessTokenBase64: qrcode(data.accessToken),
     };
     if (isSuccess) {
       data2.success = msg;
@@ -116,25 +129,14 @@ exports.setting = function (req, res, next) {
     location = validator.escape(location);
     var weibo = validator.trim(req.body.weibo);
     weibo = validator.escape(weibo);
-    var github = validator.trim(req.body.github);
-    github = validator.escape(github);
-    if (github.indexOf('@') === 0) {
-      github = github.slice(1);
-    }
     var signature = validator.trim(req.body.signature);
     signature = validator.escape(signature);
 
-    User.getUserById(req.session.user._id, function (err, user) {
-      if (err) {
-        return next(err);
-      }
+    User.getUserById(req.session.user._id, ep.done(function (user) {
       user.url = url;
       user.location = location;
       user.signature = signature;
       user.weibo = weibo;
-      // create gravatar
-      user.avatar = User.makeGravatar(user.email);
-      user.githubUsername = github;
       user.save(function (err) {
         if (err) {
           return next(err);
@@ -142,8 +144,7 @@ exports.setting = function (req, res, next) {
         req.session.user = user.toObject({virtual: true});
         return res.redirect('/setting?save=success');
       });
-    });
-
+    }));
   }
   if (action === 'change_password') {
     var old_pass = validator.trim(req.body.old_pass);
@@ -152,28 +153,24 @@ exports.setting = function (req, res, next) {
       return res.send('旧密码或新密码不得为空');
     }
 
-    User.getUserById(req.session.user._id, function (err, user) {
-      if (err) {
-        return next(err);
-      }
-
-      old_pass = utility.md5(old_pass);
-
-      if (old_pass !== user.pass) {
-        return showMessage('当前密码不正确。', user);
-      }
-
-      new_pass = utility.md5(new_pass);
-
-      user.pass = new_pass;
-      user.save(function (err) {
-        if (err) {
-          return next(err);
+    User.getUserById(req.session.user._id, ep.done(function (user) {
+      tools.bcompare(old_pass, user.pass, ep.done(function (bool) {
+        if (!bool) {
+          return showMessage('当前密码不正确。', user);
         }
-        return showMessage('密码已被修改。', user, true);
 
-      });
-    });
+        tools.bhash(new_pass, ep.done(function (passhash) {
+          user.pass = passhash;
+          user.save(function (err) {
+            if (err) {
+              return next(err);
+            }
+            return showMessage('密码已被修改。', user, true);
+
+          });
+        }));
+      }));
+    }));
   }
 };
 
@@ -334,30 +331,23 @@ exports.list_replies = function (req, res, next) {
 };
 
 exports.block = function (req, res, next) {
-  var userName = req.params.name;
+  var loginname = req.params.name;
   var action = req.body.action;
 
   var ep = EventProxy.create();
   ep.fail(next);
 
-  User.getUserByLoginName(userName, ep.done(function (user) {
+  User.getUserByLoginName(loginname, ep.done(function (user) {
     if (!user) {
       return next(new Error('user is not exists'));
     }
     if (action === 'set_block') {
-      ep.all('block_user', 'del_topics', 'del_replys',
-        function (user, topics, replys) {
+      ep.all('block_user',
+        function (user) {
           res.json({status: 'success'});
         });
       user.is_block = true;
       user.save(ep.done('block_user'));
-
-      // 防止误操作，平时都注释
-      // TopicModel.remove({author_id: user._id}, ep.done('del_topics'));
-      // ReplyModel.remove({author_id: user._id}, ep.done('del_replys'));
-      ep.emit('del_topics');
-      ep.emit('del_replys');
-      // END 防止误操作，平时都注释
 
     } else if (action === 'cancel_block') {
       user.is_block = false;
@@ -366,5 +356,26 @@ exports.block = function (req, res, next) {
         res.json({status: 'success'});
       }));
     }
+  }));
+};
+
+exports.deleteAll = function (req, res, next) {
+  var loginname = req.params.name;
+
+  var ep = EventProxy.create();
+  ep.fail(next);
+
+  User.getUserByLoginName(loginname, ep.done(function (user) {
+    if (!user) {
+      return next(new Error('user is not exists'));
+    }
+    ep.all('del_topics', 'del_replys', 'del_ups',
+      function () {
+        res.json({status: 'success'});
+      });
+    TopicModel.remove({author_id: user._id}, ep.done('del_topics'));
+    ReplyModel.remove({author_id: user._id}, ep.done('del_replys'));
+    // 点赞数也全部干掉
+    ReplyModel.update({}, {$pull: {'ups': user._id}}, {multi: true}, ep.done('del_ups'));
   }));
 };

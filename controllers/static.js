@@ -12,6 +12,10 @@ exports.faq = function (req, res, next) {
   res.render('static/faq');
 };
 
+exports.getstart = function (req, res) {
+  res.render('static/getstart');
+};
+
 exports.robots = function (req, res, next) {
   res.type('text/plain');
   res.send(multiline(function () {;
@@ -23,4 +27,8 @@ exports.robots = function (req, res, next) {
 # Disallow: /
 */
   }));
+};
+
+exports.api = function (req, res, next) {
+  res.render('static/api');
 };

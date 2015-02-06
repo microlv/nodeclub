@@ -16,6 +16,7 @@ var support = require('../support/support');
 var _ = require('lodash');
 var pedding = require('pedding');
 var UserProxy = require('../../proxy/user');
+var ReplyModel = require('../../models').Reply;
 
 describe('test/controllers/user.test.js', function () {
   var testUser;
@@ -64,6 +65,7 @@ describe('test/controllers/user.test.js', function () {
       .set('Cookie', support.normalUserCookie)
       .expect(200, function (err, res) {
         res.text.should.containEql('同时决定了 Gravatar 头像');
+        res.text.should.containEql('Access Token');
         done(err);
       });
     });
@@ -219,19 +221,21 @@ describe('test/controllers/user.test.js', function () {
 
   describe('#block', function () {
     it('should block user', function (done) {
-      request.post('/user/' + support.normalUser.loginname + '/block')
-      .send({
-        action: 'set_block'
-      })
-      .set('Cookie', support.adminUserCookie)
-      .expect(200, function (err, res) {
-        res.body.should.eql({status: 'success'});
-        UserProxy.getUserById(support.normalUser._id, function (err, user) {
-          user.is_block.should.be.true;
-          done(err)
+      support.createUser(function (err, newuser) {
+        request.post('/user/' + newuser.loginname + '/block')
+        .send({
+          action: 'set_block'
         })
-      })
-    })
+        .set('Cookie', support.adminUserCookie)
+        .expect(200, function (err, res) {
+          res.body.should.eql({status: 'success'});
+          UserProxy.getUserById(newuser._id, function (err, user) {
+            user.is_block.should.be.true;
+            done(err);
+          });
+        });
+      });
+    });
 
     it('should unblock user', function (done) {
       request.post('/user/' + support.normalUser.loginname + '/block')
@@ -246,7 +250,7 @@ describe('test/controllers/user.test.js', function () {
     })
 
     it('should wrong when user is not exists', function (done) {
-      request.post('/user/' + support.normalUser + '/block')
+      request.post('/user/not_exists_user/block')
       .send({
         action: 'set_block'
       })
@@ -254,6 +258,32 @@ describe('test/controllers/user.test.js', function () {
       .expect(500, function (err, res) {
         res.text.should.containEql('user is not exists')
         done(err);
+      })
+    })
+  })
+
+  describe('#delete_all', function () {
+    it('should delele all ups', function (done) {
+      support.createUser(function (err, user) {
+        var userId = user._id;
+        ReplyModel.findOne(function (err, reply) {
+          should.not.exists(err);
+          reply.ups.push(userId);
+          reply.save(function (err, reply) {
+            reply.ups.should.containEql(userId)
+
+            request.post('/user/' + user.loginname + '/delete_all')
+              .set('Cookie', support.adminUserCookie)
+              .expect(200, function (err, res) {
+                res.body.should.eql({ status: 'success' });
+
+                ReplyModel.findOne({_id: reply._id}, function (err, reply) {
+                  reply.ups.should.not.containEql(userId)
+                  done();
+                })
+              })
+          })
+        })
       })
     })
   })

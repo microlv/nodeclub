@@ -52,13 +52,21 @@
 
         <%= topic.title %>
       </span>
-
+      <div class="action">
+      <% if (typeof(current_user) !== 'undefined') { %>
+        <% if (!topic.in_collection) { %>
+        <span class='span-common span-success' id='collect_btn' action='collect'>加入收藏</span>
+        <% } else { %>
+        <span class='span-common' id='collect_btn' action='de_collect'>取消收藏</span>
+        <% } %>
+        <% } %>
+      </div>
       <div class="changes">
         <span>
           发布于 <%= topic.friendly_create_at %>
         </span>
         <span>
-          作者 <a href="/user/<%= topic.author.name %>"><%= topic.author.name %></a>
+          作者 <a href="/user/<%= topic.author.loginname %>"><%= topic.author.loginname %></a>
         </span>
         <span>
           <%= topic.visit_count %> 次浏览
@@ -78,49 +86,38 @@
 
         <% if (topic.top) { %>
         <a href='/topic/<%= topic._id %>/top/0' data-method="post">
-          <img class='user_icon'
-               src='<%- staticFile("/public/images/star_fav_icon&16.png") %>'
-               title='取消置顶'/>
+          <i class="fa fa-lg fa-star" title='取消置顶'></i>
         </a>
         <% } else { %>
         <a href='/topic/<%= topic._id %>/top/1' data-method="post">
-          <img class='user_icon'
-               src='<%- staticFile("/public/images/star_fav_empty_icon&16.png") %>'
-               title='置顶'/>
+          <i class="fa fa-lg fa-star-o" title='置顶'/></i>
         </a>
         <% } %>
 
         <% if (topic.good) { %>
         <a href='/topic/<%= topic._id %>/good/0' data-method="post">
-          取消精华
+          <i class="fa fa-lg fa-heart"></i>
         </a>
         <% } else { %>
         <a href='/topic/<%= topic._id %>/good/1' data-method="post">
-          设为精华
+          <i class="fa fa-lg fa-heart-o"></i>
         </a>
         <% } %>
 
         <a href='/topic/<%= topic._id %>/edit'>
-          <img
-                  class='user_icon'
-                  src='<%- staticFile("/public/images/doc_edit_icon&16.png") %>'
-                  title='编辑'/></a>
+          <i class="fa fa-lg fa-pencil-square-o" title='编辑'></i></a>
         <a href='javascript:;'
            data-id="<%= topic._id %>"
-           class='delete_topic_btn'><img class='user_icon'
-                                         src='<%- staticFile("/public/images/trash_icon&16.png") %>'
-                                         title='删除'/></a>
+           class='delete_topic_btn'>
+           <i class="fa fa-lg fa-trash" title='删除'></i></a>
         <% } else { %>
         <% if (current_user._id.equals(topic.author_id)) { %>
         <a href='/topic/<%= topic._id %>/edit'>
-          <img class='user_icon'
-               src='<%- staticFile("/public/images/doc_edit_icon&16.png") %>'
-               title='编辑'/></a>
+          <i class="fa fa-lg fa-pencil-square-o" title='编辑'></i></a>
         <a href='javascript:;'
            data-id="<%= topic._id %>"
-           class='delete_topic_btn'><img class='user_icon'
-           src='<%- staticFile("/public/images/trash_icon&16.png") %>'
-           title='删除'/></a>
+           class='delete_topic_btn'>
+           <i class="fa fa-lg fa-trash" title='删除'></i></a>
         <% } %>
         <% } %>
       </div>
@@ -129,20 +126,20 @@
     <div class='inner topic'>
 
       <div class='topic_content'>
-        <%- markdown(topic.content) %>
+        <%- markdown(topic.linkedContent) %>
       </div>
-
-      <div class="action">
-        <span class='span-success' id='share_weibo_btn'
-              onclick="((function(s,d,e,r,l,p,t,z,c){var f='http://v.t.sina.com.cn/share/share.php?appkey=<%= config.weibo_key %>',u=z||d.location,p=['&url=',e(u),'&title=',e(t||d.title),'&source=',e(r),'&sourceUrl=',e(l),'&content=',c||'gb2312','&pic=',e(p||'')].join('');function a(){if(!window.open([f,p].join(''),'mb',['toolbar=0,status=0,resizable=1,width=440,height=430,left=',(s.width-440)/2,',top=',(s.height-430)/2].join('')))u.href=[f,p].join('');};if(/Firefox/.test(navigator.userAgent))setTimeout(a,0);else a();})(screen,document,encodeURIComponent,'','','','@<%= config.weibo_id %> 分享来自<%= config.name %>的话题：<%= topic.title %>','',''));"
-                >分享到微博</span>
-        <% if (typeof(current_user) !== 'undefined') { %>
-        <% if (!topic.in_collection) { %>
-        <span class='span-common span-success' id='collect_btn' action='collect'>加入收藏</span>
-        <% } else { %>
-        <span class='span-common span-success' id='collect_btn' action='de_collect'>取消收藏</span>
-        <% } %>
-        <% } %>
+      <div class="share">
+        <!-- JiaThis Button BEGIN -->
+        <div class="jiathis_style_24x24">
+          <a class="jiathis_button_qzone"></a>
+          <a class="jiathis_button_tsina"></a>
+          <a class="jiathis_button_tqq"></a>
+          <a class="jiathis_button_weixin"></a>
+          <a class="jiathis_button_renren"></a>
+          <a class="jiathis_counter_style"></a>
+        </div>
+        <script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+        <!-- JiaThis Button END -->
       </div>
     </div>
   </div>
@@ -189,7 +186,6 @@
 <% if (typeof(current_user) !== 'undefined' && typeof(topic) !== 'undefined') { %>
 <!-- markdown editor -->
 <%- Loader('/public/editor.min.js')
-.js('/public/libs/marked.js')
 .js('/public/libs/editor/editor.js')
 .js('/public/libs/webuploader/webuploader.withoutimage.js')
 .js('/public/libs/editor/ext.js')
@@ -215,46 +211,33 @@
       //绑定editor
       $(this).data('editor', editor);
 
-      var $input = $(editor.codemirror.display.input).keydown(function(event){
+      var $input = $(editor.codemirror.display.input);
+      $input.keydown(function(event){
         if (event.keyCode === 13 && (event.ctrlKey || event.metaKey)) {
           event.preventDefault();
           $el.closest('form').submit();
         }
       });
-      var isAtInserted = false;
+
+      // at.js 配置
+      var codeMirrorGoLineUp = CodeMirror.commands.goLineUp;
+      var codeMirrorGoLineDown = CodeMirror.commands.goLineDown;
+      var codeMirrorNewlineAndIndent = CodeMirror.commands.newlineAndIndent;
       $input.atwho({
         at: '@',
         data: allNames
-      }).on("inserted.atwho", function() {
-        isAtInserted = true;
+      })
+      .on('shown.atwho', function () {
+        CodeMirror.commands.goLineUp = _.noop;
+        CodeMirror.commands.goLineDown = _.noop;
+        CodeMirror.commands.newlineAndIndent = _.noop;
+      })
+      .on('hidden.atwho', function () {
+        CodeMirror.commands.goLineUp = codeMirrorGoLineUp;
+        CodeMirror.commands.goLineDown = codeMirrorGoLineDown;
+        CodeMirror.commands.newlineAndIndent = codeMirrorNewlineAndIndent;
       });
-      editor.codemirror.on('update', function(){
-        if(isAtInserted === false){
-          return false;
-        }
-        isAtInserted = false;
-        var line = editor.codemirror.lastLine();
-        var name = editor.codemirror.getLine(line);
-        editor.codemirror.removeLine(line);
-        line--;
-        var txt = editor.codemirror.getLine(line);
-        var lastLen = txt.length;
-        var pre = [];
-        for(var i=txt.length-1; i >= 0; i--){
-          if(txt[i] === '@'){
-            lastLen = i;
-            break;
-          }
-          else{
-            pre.push(txt[i]);
-          }
-        }
-        pre.reverse();
-        if(-1 !== name.indexOf(pre.join(''))){
-          txt = txt.substring(0, lastLen + 1);
-        }
-        editor.codemirror.setLine(line, txt + name);
-      });
+      // END at.js 配置
 
     });
     // END 编辑器相关
@@ -412,6 +395,9 @@
           var mainOffset = $('#main').offset();
           $repliesHistory.css('left', offset.left-mainOffset.left+width+10); // magic number
           $repliesHistory.css('top', offset.top-mainOffset.top-10); // magic number
+          $repliesHistory.css({
+            'z-index': 1,
+          });
           $repliesHistoryContent.empty();
           var chats = [];
           var replyToId = $this.closest('.reply_item').attr('reply_to_id');

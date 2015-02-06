@@ -4,16 +4,15 @@
 
 var path = require('path');
 
-var debug = true;
-
 var config = {
   // debug 为 true 时，用于本地调试
-  debug: debug,
+  debug: true,
 
-  mini_assets: !debug, // 是否启用静态文件的合并压缩，详见视图中的Loader
+  get mini_assets() { return !this.debug; }, // 是否启用静态文件的合并压缩，详见视图中的Loader
 
   name: 'Nodeclub', // 社区名字
-  description: 'Node Club 是用 Node.js 开发的社区软件', // 社区的描述
+  description: 'CNode：Node.js专业中文社区', // 社区的描述
+  keywords: 'nodejs, node, express, connect, socket.io',
 
   // 添加到 html head 中的信息
   site_headers: [
@@ -31,7 +30,9 @@ var config = {
   // 社区的域名
   host: 'localhost',
   // 默认的Google tracker ID，自有站点请修改，申请地址：http://www.google.com/analytics/
-  google_tracker_id: 'UA-4175xxxx-x',
+  google_tracker_id: '',
+  // 默认的cnzz tracker ID，自有站点请修改
+  cnzz_tracker_id: '',
 
   // mongodb 配置
   db: 'mongodb://127.0.0.1/node_club_dev',
@@ -59,22 +60,6 @@ var config = {
     //最多获取的RSS Item数量
     max_rss_items: 50
   },
-
-  // site links
-  site_links: [
-    {
-      'text': 'Node.js 官网',
-      'url': 'http://nodejs.org/'
-    },
-    {
-      text: 'Ruby-China',
-      url: 'https://ruby-china.org/'
-    },
-    {
-      text: 'Golang中国',
-      url: 'http://golangtc.com/'
-    },
-  ],
 
   // 邮箱配置
   mail_opts: {
@@ -114,7 +99,7 @@ var config = {
   },
 
   //文件上传配置
-  //注：如果填写 7牛access，则会上传到 7牛，以下配置无效
+  //注：如果填写 qn_access，则会上传到 7牛，以下配置无效
   upload: {
     path: path.join(__dirname, 'public/upload/'),
     url: '/public/upload/'
@@ -124,8 +109,14 @@ var config = {
   tabs: [
     ['share', '分享'],
     ['ask', '问答'],
-    ['job', '招聘']
-  ]
+    ['job', '招聘'],
+  ],
+
+  // 极光推送
+  jpush: {
+    appKey: 'your access key',
+    secretKey: 'your secret key'
+  }
 };
 
 module.exports = config;

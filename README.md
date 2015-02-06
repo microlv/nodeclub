@@ -6,6 +6,8 @@ Nodeclub
 [![David deps][david-image]][david-url]
 [![node version][node-image]][node-url]
 
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/cnodejs/nodeclub?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [travis-image]: https://img.shields.io/travis/cnodejs/nodeclub.svg?style=flat-square
 [travis-url]: https://travis-ci.org/cnodejs/nodeclub
 [david-image]: https://img.shields.io/david/cnodejs/nodeclub.svg?style=flat-square
@@ -20,6 +22,8 @@ Nodeclub 是使用 **Node.js** 和 **MongoDB** 开发的社区系统，界面优
 
 ## 安装部署
 
+*不保证 Windows 系统的兼容性*
+
 ```
 1. install `node.js` `mongodb`
 2. run mongod
@@ -30,7 +34,7 @@ Nodeclub 是使用 **Node.js** 和 **MongoDB** 开发的社区系统，界面优
 7. done!
 ```
 
-## 贡献
+## 其他
 
 跑测试
 

@@ -104,10 +104,6 @@ exports.create = function (req, res, next) {
   });
 };
 
-// 得到所有的 tab, e.g. ['ask', 'share', ..]
-var allTabs = config.tabs.map(function (tPair) {
-  return tPair[0];
-});
 
 exports.put = function (req, res, next) {
   var title = validator.trim(req.body.title);
@@ -116,11 +112,16 @@ exports.put = function (req, res, next) {
   tab = validator.escape(tab);
   var content = validator.trim(req.body.t_content);
 
+  // 得到所有的 tab, e.g. ['ask', 'share', ..]
+  var allTabs = config.tabs.map(function (tPair) {
+    return tPair[0];
+  });
+
   // 验证
   var editError;
   if (title === '') {
     editError = '标题不能是空的。';
-  } else if (title.length < 5 && title.length > 100) {
+  } else if (title.length < 5 || title.length > 100) {
     editError = '标题字数太多或太少。';
   } else if (!tab || allTabs.indexOf(tab) === -1) {
     editError = '必须选择一个版块。';
@@ -210,7 +211,7 @@ exports.update = function (req, res, next) {
       var editError;
       if (title === '') {
         editError = '标题不能是空的。';
-      } else if (title.length < 5 && title.length > 100) {
+      } else if (title.length < 5 || title.length > 100) {
         editError = '标题字数太多或太少。';
       } else if (!tab) {
         editError = '必须选择一个版块。';
@@ -280,6 +281,7 @@ exports.delete = function (req, res, next) {
 exports.top = function (req, res, next) {
   var topic_id = req.params.tid;
   var is_top = req.params.is_top;
+  var referer = req.get('referer');
   if (topic_id.length !== 24) {
     res.render('notify/notify', {error: '此话题不存在或已被删除。'});
     return;
@@ -298,7 +300,7 @@ exports.top = function (req, res, next) {
         return next(err);
       }
       var msg = topic.top ? '此话题已经被置顶。' : '此话题已经被取消置顶。';
-      res.render('notify/notify', {success: msg});
+      res.render('notify/notify', {success: msg, referer: referer});
     });
   });
 };
@@ -307,6 +309,7 @@ exports.top = function (req, res, next) {
 exports.good = function (req, res, next) {
   var topicId = req.params.tid;
   var isGood = req.params.is_good;
+  var referer = req.get('referer');
   Topic.getTopic(topicId, function (err, topic) {
     if (err) {
       return next(err);
@@ -321,7 +324,7 @@ exports.good = function (req, res, next) {
         return next(err);
       }
       var msg = topic.good ? '此话题已加精。' : '此话题已经取消加精。';
-      res.render('notify/notify', {success: msg});
+      res.render('notify/notify', {success: msg, referer: referer});
     });
   });
 };
